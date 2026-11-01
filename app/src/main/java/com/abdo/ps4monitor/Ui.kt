@@ -45,16 +45,16 @@ fun pkgRoute(ps4Id: String, path: String) = "pkg/${Uri.encode(ps4Id)}/${Uri.enco
 
 @Composable fun SectionTitle(t: String) = Text(t, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
 
-@Composable fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    val shape = MaterialTheme.shapes.large; val cs = MaterialTheme.colorScheme
-    Column(modifier.fillMaxWidth().clip(shape).background(cs.surfaceContainerHigh).border(1.dp, cs.outlineVariant, shape).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
-}
+@Composable fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
+    Card(modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+    }
 
 @Composable fun Dim(t: String, modifier: Modifier = Modifier, maxLines: Int = Int.MAX_VALUE) =
     Text(t, modifier, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
 
 @Composable fun EmptyState(@DrawableRes icon: Int, text: String) =
-    Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 48.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Ico(icon, 48.dp, MaterialTheme.colorScheme.outline); Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     }
 
@@ -109,14 +109,14 @@ fun resultText(r: SubmitResult) = Tx.t(when (r) {
     // tint taken from the game's cover
     val accent by produceState<Color?>(null, d.id, d.iconReady) { value = CoverColor.load(d)?.let { Color(it) } }
     val acc = accent
-    val base = MaterialTheme.colorScheme.surfaceContainerHigh
+    val base = MaterialTheme.colorScheme.surfaceContainerLow
     val container = when {
         selected == true -> MaterialTheme.colorScheme.secondaryContainer
         acc != null -> acc.copy(alpha = 0.16f).compositeOver(base)
         else -> base
     }
     val tint = acc ?: MaterialTheme.colorScheme.primary
-    Card(Modifier.fillMaxWidth().clip(shape).combinedClickable(onClick = onOpen, onLongClick = onLong), shape = shape, colors = CardDefaults.cardColors(containerColor = container), border = BorderStroke(1.dp, tint.copy(alpha = 0.28f))) {
+    Card(Modifier.fillMaxWidth().clip(shape).combinedClickable(onClick = onOpen, onLongClick = onLong), shape = shape, colors = CardDefaults.cardColors(containerColor = container)) {
         Row(Modifier.padding(start = 14.dp, top = 14.dp, bottom = 14.dp, end = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             val art by produceState<Bitmap?>(null, d.id, d.iconReady, d.state == DlState.COMPLETED) { value = PkgThumbs.forDownload(d, 160) }
             val pic = art

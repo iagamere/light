@@ -13,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -43,11 +42,10 @@ import kotlinx.coroutines.withContext
         item { Text(tr("Settings", "الإعدادات"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold) }
         item { NavRow(R.drawable.ic_console, tr("PS4 consoles", "أجهزة PS4"), tr("Add, edit and choose the active PS4", "إضافة وتعديل واختيار الجهاز النشط")) { nav.navigate("settings/ps4s") } }
         item { NavRow(R.drawable.ic_download, tr("PS4 server", "خادم PS4"), tr("Status, send the server to the PS4, download settings, log", "الحالة، إرسال السيرفر إلى الـPS4، إعدادات التحميل، السجل")) { nav.navigate("settings/server") } }
-        item { ThemeNavCard { nav.navigate("settings/theme") } }
         item { Panel {
             SectionTitle(tr("Language", "اللغة"))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(0 to tr("Phone", "الهاتف"), 1 to "English", 2 to "العربية").forEach { (i, t) -> FilterChip(Lang.mode == i, { Store.setLang(i) }, label = { Lbl(t) }) } }
-            SectionTitle(tr("Appearance (app default theme)", "المظهر (الثيم الافتراضي)"))
+            SectionTitle(tr("Appearance", "المظهر"))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(tr("System", "النظام"), tr("Light", "فاتح"), tr("Dark", "داكن")).forEachIndexed { i, t -> FilterChip(Store.theme.intValue == i, { Store.setTheme(i) }, label = { Lbl(t) }) } }
             if (android.os.Build.VERSION.SDK_INT >= 31) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f)) { Text(tr("Use phone colours", "استخدام ألوان الهاتف")); Dim(tr("Follows your wallpaper / system accent colour", "يتبع لون الهاتف الأساسي")) }
@@ -61,11 +59,6 @@ import kotlinx.coroutines.withContext
             HorizontalDivider()
             ToggleRow(tr("Download notifications", "إشعارات التحميل"), "notif", true)
             ToggleRow(tr("Alert me when a download is interrupted", "نبّهني عند انقطاع تحميل"), "alert_int", true)
-        } }
-        item { Panel {
-            ToggleRow(tr("Look up game information online", "البحث عن معلومات اللعبة عبر الإنترنت"), "online_info", true)
-            Dim(tr("Shows genre, age rating, release date and a short premise in a game's Details tab (Wikipedia / Wikidata). Only the game's name is sent, once per game.",
-                "يعرض النوع والتصنيف العمري وتاريخ الإصدار ونبذة في تبويب تفاصيل اللعبة (ويكيبيديا / ويكيداتا). يُرسَل اسم اللعبة فقط، مرة واحدة لكل لعبة."))
         } }
         if (!ignoring) item { Panel {
             Text(tr("Battery optimization may pause background monitoring on some phones.", "قد يوقف توفير البطارية المراقبة في الخلفية على بعض الهواتف."))
@@ -199,24 +192,6 @@ import kotlinx.coroutines.withContext
             val inUse = DownloadRepo.all.value.any { it.ps4Id == existing!!.id && it.state.active }
             OutlinedButton(enabled = !inUse, onClick = { Ps4Repo.delete(existing!!.id); nav.popBackStack() }) { Lbl(tr("Delete this PS4", "حذف هذا الجهاز"), color = MaterialTheme.colorScheme.error) }
             if (inUse) Dim(tr("Cannot delete while downloads are active on this PS4.", "لا يمكن الحذف أثناء وجود تحميلات نشطة على هذا الجهاز."))
-        }
-    }
-}
-
-/** Entry card of Theme Settings: shows the active theme as a mini swatch strip. */
-@Composable private fun ThemeNavCard(onClick: () -> Unit) {
-    val t = ThemeEngine.base
-    val name = when (ThemeEngine.mode) { ThemeMode.DYNAMIC -> tr("Game theme", "ثيم اللعبة"); ThemeMode.DEFAULT -> tr("App default", "الافتراضي"); else -> t.name }
-    Card(onClick = onClick, Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
-                listOf(t.bg2, t.surface, t.accent, t.accent2).forEach { Box(Modifier.size(26.dp).clip(androidx.compose.foundation.shape.CircleShape).background(androidx.compose.ui.graphics.Color(it)).border(1.5.dp, MaterialTheme.colorScheme.surface, androidx.compose.foundation.shape.CircleShape)) }
-            }
-            Column(Modifier.weight(1f)) {
-                Text(tr("Theme", "الثيم"), fontWeight = FontWeight.SemiBold)
-                Dim(name + "  •  " + tr("presets, game themes, your own colours", "ثيمات جاهزة، ثيم اللعبة، وألوانك الخاصة"), maxLines = 2)
-            }
-            Ico(R.drawable.ic_arrow_forward, 20.dp, MaterialTheme.colorScheme.outline)
         }
     }
 }

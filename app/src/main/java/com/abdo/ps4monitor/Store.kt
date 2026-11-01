@@ -17,14 +17,14 @@ object Store {
     lateinit var sp: SharedPreferences
     lateinit var secure: SharedPreferences      // encrypted: PS4 profiles and download records
     val theme = mutableIntStateOf(0)            // 0 system, 1 light, 2 dark
-    val dynamic = mutableStateOf(false)         // use the phone's own (Material You) colours (only in the App default theme mode)
+    val dynamic = mutableStateOf(true)          // use the phone's own (Material You) colours
 
     fun init(c: Context) {
         sp = c.getSharedPreferences("app", 0)
         val key = MasterKey.Builder(c).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
         secure = EncryptedSharedPreferences.create(c, "secure", key,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
-        theme.intValue = sp.getInt("theme", 0); dynamic.value = sp.getBoolean("dynamic", false); Lang.mode = sp.getInt("lang", 0); ThemeEngine.init(sp)
+        theme.intValue = sp.getInt("theme", 0); dynamic.value = sp.getBoolean("dynamic", true); Lang.mode = sp.getInt("lang", 0)
         Ps4Repo.load(); DownloadRepo.load()
     }
     fun settings() = Settings(sp.getInt("poll", 3), sp.getInt("timeout", 10), sp.getInt("stuck", 60), sp.getBoolean("notif", true))

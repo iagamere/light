@@ -2,11 +2,7 @@
 package com.abdo.ps4monitor
 import android.graphics.Bitmap
 import android.widget.Toast
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
-import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -82,27 +78,13 @@ import kotlinx.coroutines.withContext
 }
 
 @Composable private fun InfoRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(label, Modifier.weight(0.38f), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-        Text(value, Modifier.weight(0.62f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(label, Modifier.weight(0.4f), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        Text(value, Modifier.weight(0.6f), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
-/** Colours of the game's cover -> a coordinated theme. Analysed once per game (48x48 sample) off the main thread, then cached in [ThemeEngine]. */
-@Composable private fun rememberGameTheme(titleId: String, cover: Bitmap?): AppTheme? {
-    val t by produceState<AppTheme?>(ThemeEngine.cachedGame(titleId), titleId, cover) {
-        if (value == null && cover != null) value = withContext(Dispatchers.Default) {
-            runCatching {
-                val sm = Bitmap.createScaledBitmap(cover, 48, 48, true)
-                val px = IntArray(48 * 48); sm.getPixels(px, 0, 48, 0, 0, 48, 48)
-                ThemeEngine.fromCover(titleId, CoverPalette.analyze(px))
-            }.getOrNull()
-        }
-    }
-    return t
-}
-
-/** Details of one game: cinematic hero (pic1/pic0 artwork), cover, name, segmented tabs, then the tab content. Colours follow the theme mode. */
+/** Details of one game: background picture (pic1/pic0), cover, name and everything param.sfo says about it. */
 @Composable private fun GameSheet(ps4: Ps4, g: GameInfo, onDeleted: (String) -> Unit, onClose: () -> Unit) {
     val ctx = LocalContext.current
     val clip = LocalClipboardManager.current
@@ -122,74 +104,39 @@ import kotlinx.coroutines.withContext
     }
     var tab by rememberSaveable(g.titleId) { mutableIntStateOf(0) }
     val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
-    // theme: Dynamic mode = the game's own; Preset / Custom = the saved theme (optionally with the game's accents); App default = the app's current scheme
-    val gameTheme = rememberGameTheme(g.titleId, icon)
-    val cs = if (ThemeEngine.mode == ThemeMode.DEFAULT) MaterialTheme.colorScheme else ThemeEngine.scheme(ThemeEngine.forGame(gameTheme))
-    val sheetBg by animateColorAsState(cs.surface, tween(350), label = "gameBg")
-    MaterialTheme(colorScheme = cs, shapes = MaterialTheme.shapes) {
-        ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = sheetBg, contentColor = cs.onSurface, dragHandle = null, scrimColor = Color.Black.copy(alpha = 0.6f)) {
-            Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                GameHero(g, icon, banner) 
-                Box(Modifier.padding(horizontal = 16.dp)) { SegmentedTabs(listOf(tr("Details", "التفاصيل"), tr("Captures", "اللقطات"), tr("Trophies", "الإنجازات")), tab) { tab = it } }
-                if (tab == 1) Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(screenH * 0.7f)) { CapturesTab(ps4, 0, g.titleId) }
-                if (tab == 2) Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) { TrophiesTab(ps4, g) }
-                if (tab == 0) Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh).border(1.dp, cs.outlineVariant, RoundedCornerShape(18.dp)).padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)) { rows.forEach { (k, v) -> InfoRow(k, v) } }
-                    GameAbout(g.titleId, g.title)
-                    FilledTonalButton(onClick = { clip.setText(AnnotatedString(g.titleId)); Toast.makeText(ctx, tr("Copied", "تم النسخ"), Toast.LENGTH_SHORT).show() }) {
-                        Ico(R.drawable.ic_copy, 18.dp); Spacer(Modifier.width(6.dp)); Lbl(tr("Copy title ID", "نسخ معرّف اللعبة"))
-                    }
-                    if (DeletePolicy.isGameId(g.titleId)) DeleteGameSection(ps4, g, onDeleted, onClose)
+    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(MaterialTheme.colorScheme.surfaceContainerHighest), contentAlignment = Alignment.Center) {
+                val bn = banner
+                if (bn != null) {
+                    Image(bn.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f)))))
+                } else Ico(R.drawable.ic_package, 48.dp, MaterialTheme.colorScheme.outline)
+            }
+            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(96.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest), contentAlignment = Alignment.Center) {
+                    val ic = icon
+                    if (ic != null) Image(ic.asImageBitmap(), g.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    else Ico(R.drawable.ic_package, 36.dp, MaterialTheme.colorScheme.outline)
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(g.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    Dim(listOfNotNull(g.titleId, g.version.takeIf { it.isNotBlank() }?.let { "v$it" }).joinToString("  •  "))
                 }
             }
-        }
-    }
-}
-
-/** Edge-to-edge artwork fading into the page, with the cover and title on top. Missing artwork falls back to a themed gradient. */
-@Composable private fun GameHero(g: GameInfo, icon: Bitmap?, banner: Bitmap?) {
-    val cs = MaterialTheme.colorScheme
-    Box(Modifier.fillMaxWidth().height(250.dp)) {
-        val bn = banner
-        if (bn != null) Image(bn.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(cs.primaryContainer, cs.surfaceContainer, cs.surface))))
-        Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.35f), 0.35f to Color.Transparent, 0.75f to cs.surface.copy(alpha = 0.85f), 1f to cs.surface)))
-        Box(Modifier.matchParentSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.25f), 0.25f to Color.Transparent, 0.75f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.25f))))
-        Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Bottom) {
-            Box(Modifier.size(104.dp).shadow(12.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest).border(1.dp, cs.primary.copy(alpha = 0.5f), RoundedCornerShape(18.dp)), contentAlignment = Alignment.Center) {
-                val ic = icon
-                if (ic != null) Image(ic.asImageBitmap(), g.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                else Ico(R.drawable.ic_package, 36.dp, cs.outline)
+            TabRow(selectedTabIndex = tab) {
+                listOf(tr("Details", "التفاصيل"), tr("Captures", "اللقطات"), tr("Trophies", "الإنجازات")).forEachIndexed { i, t -> Tab(tab == i, { tab = i }, text = { Lbl(t) }) }
             }
-            Column(Modifier.weight(1f).padding(bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(g.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                Dim(listOfNotNull(g.titleId, g.version.takeIf { it.isNotBlank() }?.let { "v$it" }).joinToString("  •  "), maxLines = 1)
+            if (tab == 1) Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(screenH * 0.7f)) { CapturesTab(ps4, 0, g.titleId) }
+            if (tab == 2) Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) { TrophiesTab(ps4, g) }
+            if (tab == 0) Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                rows.forEach { (k, v) -> InfoRow(k, v) }
+                FilledTonalButton(onClick = { clip.setText(AnnotatedString(g.titleId)); Toast.makeText(ctx, tr("Copied", "تم النسخ"), Toast.LENGTH_SHORT).show() }) {
+                    Ico(R.drawable.ic_copy, 18.dp); Spacer(Modifier.width(6.dp)); Lbl(tr("Copy title ID", "نسخ معرّف اللعبة"))
+                }
+                if (DeletePolicy.isGameId(g.titleId)) DeleteGameSection(ps4, g, onDeleted, onClose)
             }
         }
-    }
-}
-
-/** Segmented tab control: the selected segment is tinted with the active accent. Same behaviour as before (index in, index out). */
-@Composable fun SegmentedTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainerHigh).border(1.dp, cs.outlineVariant, RoundedCornerShape(16.dp)).padding(4.dp)) {
-        labels.forEachIndexed { i, t ->
-            val on = i == selected
-            val bg by animateColorAsState(if (on) cs.primary.copy(alpha = 0.20f) else Color.Transparent, tween(180), label = "tab")
-            Box(Modifier.weight(1f).heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp)).background(bg).clickable { onSelect(i) }.padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
-                Lbl(t, color = if (on) cs.primary else cs.onSurfaceVariant, weight = if (on) FontWeight.SemiBold else FontWeight.Medium, style = MaterialTheme.typography.titleSmall)
-            }
-        }
-    }
-}
-
-/** Section title with a fading rule, used between blocks of the game page. */
-@Composable fun SectionHeader(t: String) {
-    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(t, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Box(Modifier.weight(1f).height(1.dp).background(Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.outlineVariant, Color.Transparent))))
     }
 }
 

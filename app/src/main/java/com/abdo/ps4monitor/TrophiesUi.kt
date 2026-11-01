@@ -1,12 +1,9 @@
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 package com.abdo.ps4monitor
 import android.graphics.Bitmap
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -21,7 +18,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -68,28 +64,26 @@ private class TrophyData(val accounts: List<Account>, val pack: TrophyPack?, val
 /** What was read for a game is kept for 5 minutes, so going back into the same game's trophies is instant. */
 private object TrophyDataCache { val map = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, TrophyData>>() }
 
-/** Account selector item: progress ring around the avatar. The selected account has a thicker accent ring and an accent label. */
+/** Ring with the progress of one account around its picture (PS4 style circles). */
 @Composable private fun AccountCircle(ps4: Ps4, a: Account, pct: Int?, selected: Boolean, onClick: () -> Unit) {
     val img by produceState<Bitmap?>(Thumbs.peekAny(ps4, a.avatarPaths, 128), a.id) { if (value == null) value = Thumbs.loadAny(ps4, a.avatarPaths, 128) }
-    val cs = MaterialTheme.colorScheme
-    val ring = cs.primary; val track = if (selected) cs.primary.copy(alpha = 0.25f) else cs.outlineVariant
-    Column(Modifier.width(92.dp).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val ring = MaterialTheme.colorScheme.primary; val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    Column(Modifier.width(84.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(Modifier.size(76.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.matchParentSize()) {
-                val w = if (selected) 6.dp.toPx() else 4.dp.toPx(); val inset = w / 2
+                val w = if (selected) 7.dp.toPx() else 5.dp.toPx(); val inset = w / 2
                 val sz = Size(size.width - w, size.height - w)
                 drawArc(track, 0f, 360f, false, Offset(inset, inset), sz, style = Stroke(w))
-                if (pct != null && pct > 0) drawArc(ring, -90f, 360f * pct.coerceIn(0, 100) / 100f, false, Offset(inset, inset), sz, style = Stroke(w, cap = StrokeCap.Round))
+                if (pct != null) drawArc(ring, -90f, 360f * pct / 100f, false, Offset(inset, inset), sz, style = Stroke(w, cap = StrokeCap.Round))
             }
-            Box(Modifier.size(56.dp).clip(CircleShape).background(cs.surfaceContainerHighest).alpha(if (selected) 1f else 0.8f), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
                 val b = img
                 if (b != null) Image(b.asImageBitmap(), a.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                else Text(a.name.take(1).uppercase(), style = MaterialTheme.typography.titleLarge, color = cs.onSurface)
+                else Text(a.name.take(1).uppercase(), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
             }
         }
-        Text(a.name, Modifier.fillMaxWidth(), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-            color = if (selected) cs.primary else cs.onSurface, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
-        Text(if (pct != null) "$pct%" else "—", style = MaterialTheme.typography.labelSmall, color = if (selected) cs.primary else cs.onSurfaceVariant, maxLines = 1)
+        Text(a.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+        Dim(if (pct != null) "$pct%" else "—", maxLines = 1)
     }
 }
 
@@ -102,66 +96,22 @@ private object TrophyDataCache { val map = java.util.concurrent.ConcurrentHashMa
         if (pack != null && e != null && e.second in 1..(2L shl 20)) value = withContext(Dispatchers.IO) { runCatching { Thumbs.decode(Ps4Server.fsRead(ps4, pack.trpPath, e.first, e.second.toInt(), 15000), 160) }.getOrNull() }
     }
     val hiddenLocked = t.hidden && !got
-    val cs = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(16.dp)
-    val tint = if (got) gradeColor(t.grade) else cs.outlineVariant
-    Row(Modifier.fillMaxWidth().clip(shape).background(if (got) cs.surfaceContainerHigh else cs.surfaceContainerLow)
-        .border(1.dp, if (got) tint.copy(alpha = 0.45f) else cs.outlineVariant.copy(alpha = 0.6f), shape).padding(10.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(58.dp).clip(RoundedCornerShape(12.dp)).background(cs.surfaceContainerHighest), contentAlignment = Alignment.Center) {
+    Row(Modifier.fillMaxWidth().alpha(if (got || !known) 1f else 0.55f), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest), contentAlignment = Alignment.Center) {
             val b = icon
-            if (b != null && !hiddenLocked) Image(b.asImageBitmap(), t.name, Modifier.fillMaxSize().alpha(if (got || !known) 1f else 0.4f), contentScale = ContentScale.Crop)
-            else Ico(R.drawable.ic_lock, 22.dp, cs.outline)
+            if (b != null && !hiddenLocked) Image(b.asImageBitmap(), t.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            else Ico(R.drawable.ic_package, 24.dp, MaterialTheme.colorScheme.outline)
         }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(if (hiddenLocked) tr("Hidden trophy", "كأس مخفي") else t.name, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                color = if (got || !known) cs.onSurface else cs.onSurfaceVariant)
+        Column(Modifier.weight(1f)) {
+            Text(if (hiddenLocked) tr("Hidden trophy", "كأس مخفي") else t.name, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (!hiddenLocked && t.detail.isNotBlank()) Dim(t.detail, maxLines = 3)
-            if (got && earnedAt != null && earnedAt > 0) Text(tr("Earned ", "حُقّق ") + SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(earnedAt * 1000)),
-                style = MaterialTheme.typography.labelSmall, color = cs.primary)
+            if (got && earnedAt != null && earnedAt > 0) Dim(tr("Earned ", "حُقّق ") + SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(earnedAt * 1000)))
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Box(Modifier.alpha(if (got || !known) 1f else 0.55f)) { GradeIcon(t.grade, 28.dp) }
-            if (t.grade != '?') Text(gradeName(t.grade), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, maxLines = 1)
-            if (known) { if (got) Ico(R.drawable.ic_check_circle, 16.dp, cs.primary) else Ico(R.drawable.ic_lock, 16.dp, cs.onSurfaceVariant) }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            GradeIcon(t.grade, 26.dp)
+            if (t.grade != '?') Dim(gradeName(t.grade), maxLines = 1)
+            if (known) { if (got) Ico(R.drawable.ic_check_circle, 18.dp, MaterialTheme.colorScheme.primary) else Ico(R.drawable.ic_lock, 18.dp, MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-    }
-}
-
-/** Statistics of the selected account, from the real trophy data only. Missing data shows the existing explanation instead of invented numbers. */
-@Composable private fun TrophyOverview(ps4: Ps4, acc: Account, pct: Int?, u: Map<Int, Long>?, earnedCount: Int, total: Int, readable: Boolean, trophies: List<Trophy>, earned: List<Trophy>) {
-    val cs = MaterialTheme.colorScheme
-    val img by produceState<Bitmap?>(Thumbs.peekAny(ps4, acc.avatarPaths, 128), ps4.id, acc.id) { value = Thumbs.peekAny(ps4, acc.avatarPaths, 128) ?: Thumbs.loadAny(ps4, acc.avatarPaths, 128) }
-    val shape = RoundedCornerShape(22.dp)
-    Column(Modifier.fillMaxWidth().clip(shape).background(Brush.linearGradient(listOf(cs.surfaceContainerHigh, cs.surfaceContainer))).border(1.dp, cs.outlineVariant, shape).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Box(Modifier.size(52.dp).clip(CircleShape).background(cs.surfaceContainerHighest), contentAlignment = Alignment.Center) {
-                val b = img
-                if (b != null) Image(b.asImageBitmap(), acc.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) else Text(acc.name.take(1).uppercase(), style = MaterialTheme.typography.titleLarge)
-            }
-            Text(acc.name, Modifier.weight(1f), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        if (pct != null && u != null) {
-            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("$pct%", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = cs.onSurface)
-                Text(tr("$earnedCount of $total trophies", "$earnedCount من $total إنجازًا"), Modifier.padding(bottom = 6.dp), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
-            }
-            val frac by animateFloatAsState(pct.coerceIn(0, 100) / 100f, tween(500), label = "pct")
-            Box(Modifier.fillMaxWidth().height(8.dp).clip(CircleShape).background(cs.outlineVariant)) {
-                Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(CircleShape).background(Brush.horizontalGradient(listOf(cs.primary, cs.secondary))))
-            }
-            if (readable) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                listOf('P' to tr("Platinum", "بلاتينية"), 'G' to tr("Gold", "ذهبية"), 'S' to tr("Silver", "فضية"), 'B' to tr("Bronze", "برونزية")).forEach { (gr, name) ->
-                    val all = trophies.count { it.grade == gr }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        GradeIcon(gr, 30.dp)
-                        Column { Text("${earned.count { it.grade == gr }}/$all", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall); Text(name, style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, maxLines = 1) }
-                    }
-                }
-            }
-            if (readable) Text(tr("Points: ", "النقاط: ") + earned.sumOf { t -> TrophyLib.points(t.grade) }, style = MaterialTheme.typography.titleSmall, color = cs.primary)
-        } else Dim(tr("This game has no trophy record for this account (it has not played it, or the console's data could not be read).", "لا يوجد سجل إنجازات لهذه اللعبة في هذا الحساب (لم يلعبها، أو تعذّرت قراءة بيانات الجهاز)."))
     }
 }
 
@@ -198,7 +148,7 @@ private object TrophyDataCache { val map = java.util.concurrent.ConcurrentHashMa
     val loaded = d.accounts.all { it.id in states }
     // the trophy list: the console's own database has the real names (the .trp pack may be encrypted); the pack supplies the pictures
     val dbAny = states.values.firstNotNullOfOrNull { it.db }
-    val trophies: List<Trophy>? = dbAny?.trophies?.map { x -> Trophy(x.id, x.name.ifBlank { "Trophy %03d".format(x.id) }, x.detail, pack?.trophies?.firstOrNull { it.id == x.id }?.grade?.takeIf { it != '?' } ?: x.grade, !x.visible, pack?.trophies?.firstOrNull { it.id == x.id }?.icon ?: x.icon.ifBlank { null }) } ?: pack?.trophies
+    val trophies: List<Trophy>? = dbAny?.trophies?.map { x -> Trophy(x.id, x.name.ifBlank { "Trophy %03d".format(x.id) }, x.detail, x.grade, !x.visible, pack?.trophies?.firstOrNull { it.id == x.id }?.icon ?: x.icon.ifBlank { null }) } ?: pack?.trophies
     val readable = dbAny != null || pack?.namesReadable == true
     if (trophies == null) {
         if (!loaded) { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { LinearProgressIndicator(Modifier.fillMaxWidth()); Dim(tr("Reading trophies…", "جارٍ قراءة الإنجازات…")) }; return }
@@ -206,7 +156,7 @@ private object TrophyDataCache { val map = java.util.concurrent.ConcurrentHashMa
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EmptyState(R.drawable.ic_package, tr("This game has no trophy data the app can read.", "هذه اللعبة لا تحتوي بيانات إنجازات يستطيع التطبيق قراءتها."))
             if (d.accounts.isNotEmpty()) {
-                SectionHeader(tr("Accounts on this console", "الحسابات في هذا الجهاز"))
+                SectionTitle(tr("Accounts on this console", "الحسابات في هذا الجهاز"))
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     d.accounts.forEach { a -> AccountCircle(ps4, a, null, false) { } }
                 }
@@ -229,9 +179,9 @@ private object TrophyDataCache { val map = java.util.concurrent.ConcurrentHashMa
     val shownId = sel ?: d.accounts.maxByOrNull { pctOf(it) ?: -1 }?.id
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val title = dbAny?.title?.title?.takeIf { it.isNotBlank() } ?: pack?.title.orEmpty()
-        if (d.accounts.isNotEmpty()) SectionHeader(title.ifBlank { g.title })
+        if (title.isNotBlank()) Dim(title)
         if (d.accounts.isEmpty()) Dim(tr("No accounts found on the console.", "لم يُعثر على حسابات في الجهاز."))
-        else Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        else Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             d.accounts.forEach { a -> AccountCircle(ps4, a, pctOf(a), a.id == shownId) { sel = a.id } }
         }
         val acc = d.accounts.firstOrNull { it.id == shownId }
@@ -241,11 +191,29 @@ private object TrophyDataCache { val map = java.util.concurrent.ConcurrentHashMa
             val u = st.unlocked
             val earned = trophies.filter { u?.containsKey(it.id) == true }
             val pct = pctOf(acc)
-            TrophyOverview(ps4, acc, pct, u, earned.size, total, readable, trophies, earned)
+            Panel {
+                Text(acc.name, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium)
+                if (pct != null && u != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("$pct%", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                        Dim(tr("${earned.size} of $total trophies", "${earned.size} من $total إنجازًا"))
+                    }
+                    LinearProgressIndicator(progress = { pct / 100f }, modifier = Modifier.fillMaxWidth())
+                    if (readable) FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        listOf('P', 'G', 'S', 'B').forEach { gr ->
+                            val all = trophies.count { it.grade == gr }
+                            if (all > 0) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                GradeIcon(gr, 20.dp); Text("${earned.count { it.grade == gr }}/$all", style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                    if (readable) Dim(tr("Points: ", "النقاط: ") + earned.sumOf { t -> TrophyLib.points(t.grade) })
+                } else Dim(tr("This game has no trophy record for this account (it has not played it, or the console's data could not be read).", "لا يوجد سجل إنجازات لهذه اللعبة في هذا الحساب (لم يلعبها، أو تعذّرت قراءة بيانات الجهاز)."))
+            }
             if (u != null) {
                 val missing = trophies.filter { u[it.id] == null }
-                if (earned.isNotEmpty()) { SectionHeader(tr("Earned", "المحققة") + " (${earned.size})"); earned.sortedByDescending { u[it.id] ?: 0L }.forEach { key(it.id) { TrophyRow(ps4, pack, it, u[it.id], true) } } }
-                if (missing.isNotEmpty()) { SectionHeader(tr("Not earned yet", "غير محققة") + " (${missing.size})"); missing.forEach { key(it.id) { TrophyRow(ps4, pack, it, null, true) } } }
+                if (earned.isNotEmpty()) { SectionTitle(tr("Earned", "المحققة") + " (${earned.size})"); earned.sortedByDescending { u[it.id] ?: 0L }.forEach { key(it.id) { TrophyRow(ps4, pack, it, u[it.id], true) } } }
+                if (missing.isNotEmpty()) { SectionTitle(tr("Not earned yet", "غير محققة") + " (${missing.size})"); missing.forEach { key(it.id) { TrophyRow(ps4, pack, it, null, true) } } }
             } else trophies.forEach { key(it.id) { TrophyRow(ps4, pack, it, null, false) } }
             val sealedNpwr = d.npwrs.firstOrNull()
             if ((st.unlocked == null || earned.isEmpty() || st.notes.any { it.startsWith("From the sealed trophy image") }) && sealedNpwr != null) {

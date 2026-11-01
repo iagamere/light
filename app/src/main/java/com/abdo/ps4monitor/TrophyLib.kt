@@ -355,12 +355,8 @@ object TrophyLib {
         val dist = rows.groupingBy { it.grade }.eachCount()
         val want4 = mapOf('P' to pick.pn, 'G' to pick.gn, 'S' to pick.sn, 'B' to pick.bn)
         val maps = listOf(mapOf(1 to 'P', 2 to 'G', 3 to 'S', 4 to 'B'), mapOf(0 to 'P', 1 to 'G', 2 to 'S', 3 to 'B'), mapOf(4 to 'P', 3 to 'G', 2 to 'S', 1 to 'B'), mapOf(3 to 'P', 2 to 'G', 1 to 'S', 0 to 'B'))
-        // exact match first; if the title's counts differ (e.g. DLC groups are counted apart) take the mapping that fits best
-        fun misfit(m: Map<Int, Char>) = want4.entries.sumOf { (ch, n) -> Math.abs(m.entries.filter { it.value == ch }.sumOf { dist[it.key] ?: 0 } - n) }
-        val usable = maps.filter { m -> dist.keys.all { it in m } }
-        val gm = if (want4.values.sum() > 0) usable.minByOrNull { misfit(it) }?.takeIf { misfit(it) <= maxOf(2, rows.size / 2) } else usable.firstOrNull()
+        val gm = maps.firstOrNull { m -> want4.values.sum() > 0 && want4.all { (ch, n) -> m.entries.filter { it.value == ch }.sumOf { dist[it.key] ?: 0 } == n } && dist.keys.all { it in m } }
         if (gm == null) notes += "grade numbers ${dist} do not match the title's counts (P${pick.pn} G${pick.gn} S${pick.sn} B${pick.bn}): grades are not shown"
-        else if (misfit(gm) != 0) notes += "grade numbers ${dist} only approximately match the title's counts (P${pick.pn} G${pick.gn} S${pick.sn} B${pick.bn}); the trophy pack's own grades are preferred"
         val list = rows.map { r -> DbTrophy(r.tid, r.group, r.name, r.detail, gm?.get(r.grade) ?: '?', times.containsKey(r.id), !r.hidden, times[r.id] ?: 0L, r.icon) }
         val earned = list.count { it.unlocked }
         val pr = um?.progress?.takeIf { it in 0..100 } ?: if (pick.total > 0) earned * 100 / pick.total else 0
@@ -390,14 +386,12 @@ object TrophyLib {
     fun accountDb(ps4: Ps4, account: Account, npwr: String, gameTitle: String, cache: File, notes: MutableList<String>, opened: BooleanArray = BooleanArray(1)): AccountDb? {
         val tdir = "/user/home/${account.id}/trophy"
         val dir = "$tdir/db"
-        // listing the PARENT folder too is only useful to explain a failure; doing it unconditionally doubled the PS4 round trips for
-        // every account on every game, including the common case where trophy_local.db already has the answer. Deferred to failure only.
-        fun parentListing() = "$tdir: " + (try { Ps4Server.fsList(ps4, tdir, 8000).joinToString { (if (it.isDir) "[" + it.name + "]" else it.name) } } catch (e: Exception) { e.message ?: "?" })
-        val l = try { Ps4Server.fsList(ps4, dir, 8000) } catch (e: Exception) { notes += "$dir: ${e.message}"; notes += parentListing(); return null }
+        notes += "$tdir: " + (try { Ps4Server.fsList(ps4, tdir, 8000).joinToString { (if (it.isDir) "[" + it.name + "]" else it.name) } } catch (e: Exception) { e.message ?: "?" })
+        val l = try { Ps4Server.fsList(ps4, dir, 8000) } catch (e: Exception) { notes += "$dir: ${e.message}"; return null }
         notes += "$dir: " + l.take(12).joinToString { "${it.name} (${it.size} B)" }
         // trophy_local.db is where Apollo finds the trophies; any other .db in the folder is checked for the same tables and described when it does not match
         val files = l.filter { !it.isDir && it.name.endsWith(".db", true) }.sortedByDescending { it.name == "trophy_local.db" }
-        if (files.isEmpty()) { notes += "$dir has no .db file (found: " + l.take(12).joinToString { it.name } + ")"; notes += parentListing(); return null }
+        if (files.isEmpty()) { notes += "$dir has no .db file (found: " + l.take(12).joinToString { it.name } + ")"; return null }
         for (main in files) {
             val base = File(cache, "troph_" + (ps4.id + account.id + main.name).hashCode().toUInt().toString(16) + ".db")
             val wal = l.firstOrNull { it.name == main.name + "-wal" && !it.isDir }
@@ -448,7 +442,6 @@ object TrophyLib {
                 } finally { db.close() }
             } catch (ex: Exception) { notes += "${main.name} (${account.name}): ${ex.message}" }
         }
-        notes += parentListing()
         return null
     }
 

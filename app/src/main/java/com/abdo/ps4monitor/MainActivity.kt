@@ -47,27 +47,20 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable fun Root() {
+    val dark = when (Store.theme.intValue) { 1 -> false; 2 -> true; else -> isSystemInDarkTheme() }
     val ctx = LocalContext.current
-    val mode = ThemeEngine.mode
-    val sysDark = isSystemInDarkTheme()
-    val dark = when (Store.theme.intValue) { 1 -> false; 2 -> true; else -> sysDark }
-    // App default mode keeps the old Appearance options (system / light / dark, phone colours); presets, profiles and the game theme are always dark.
-    val legacy = mode == ThemeMode.DEFAULT && (Store.theme.intValue == 1 || (Store.dynamic.value && Build.VERSION.SDK_INT >= 31) || (Store.theme.intValue == 0 && !sysDark))
-    val appTheme = ThemeEngine.base
-    val cs = when {
-        legacy && Store.dynamic.value && Build.VERSION.SDK_INT >= 31 -> if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
-        legacy && !dark -> lightColorScheme(primary = Color(0xFF5B3FD6), secondary = Color(0xFF3A5BA0), tertiary = Color(0xFF7D5260))
-        else -> ThemeEngine.scheme(appTheme)
-    }
-    val lightUi = legacy && !dark
+    // Phone (Material You) colours when available and enabled; otherwise a purple fallback.
+    val cs = if (Store.dynamic.value && Build.VERSION.SDK_INT >= 31) { if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx) }
+             else if (dark) darkColorScheme(primary = Color(0xFFCFBCFF), secondary = Color(0xFFCCC2DC), tertiary = Color(0xFFEFB8C8))
+             else lightColorScheme(primary = Color(0xFF6A3DE8), secondary = Color(0xFF625B71), tertiary = Color(0xFF7D5260))
     val view = LocalView.current
     SideEffect {
         val w = (view.context as? Activity)?.window ?: return@SideEffect
         w.statusBarColor = cs.surface.toArgb(); w.navigationBarColor = cs.surfaceContainer.toArgb()
-        WindowCompat.getInsetsController(w, view).apply { isAppearanceLightStatusBars = lightUi; isAppearanceLightNavigationBars = lightUi }
+        WindowCompat.getInsetsController(w, view).apply { isAppearanceLightStatusBars = !dark; isAppearanceLightNavigationBars = !dark }
     }
-    val shapes = Shapes(small = RoundedCornerShape(10.dp), medium = RoundedCornerShape(14.dp), large = RoundedCornerShape(18.dp), extraLarge = RoundedCornerShape(24.dp))
-    CompositionLocalProvider(LocalLayoutDirection provides if (Lang.isAr) LayoutDirection.Rtl else LayoutDirection.Ltr, LocalTokens provides ThemeEngine.tokens(appTheme)) {
+    val shapes = Shapes(small = RoundedCornerShape(10.dp), medium = RoundedCornerShape(16.dp), large = RoundedCornerShape(20.dp), extraLarge = RoundedCornerShape(28.dp))
+    CompositionLocalProvider(LocalLayoutDirection provides if (Lang.isAr) LayoutDirection.Rtl else LayoutDirection.Ltr) {
         MaterialTheme(colorScheme = cs, shapes = shapes) { Surface(Modifier.fillMaxSize(), color = cs.surface) { AppNav(); LaunchedEffect(Unit) { Tour.startIfFirstRun() }; TourOverlay() } }
     }
 }
@@ -83,9 +76,9 @@ private val TABS = listOf(Triple("home", R.drawable.ic_home, "Home" to "الرئ
     val active by DownloadRepo.all.collectAsState()
     val activeCount = active.count { it.state.active }
     Scaffold(bottomBar = {
-        if (topLevel) NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 0.dp) {
+        if (topLevel) NavigationBar {
             TABS.forEach { (r, icon, label) ->
-                NavigationBarItem(selected = route == r, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f), unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant), label = { Lbl(tr(label.first, label.second), style = MaterialTheme.typography.labelMedium) },
+                NavigationBarItem(selected = route == r, label = { Lbl(tr(label.first, label.second), style = MaterialTheme.typography.labelMedium) },
                     icon = { BadgedBox(badge = { if (r == "downloads" && activeCount > 0) Badge { Text("$activeCount") } }) { Ico(icon) } },
                     onClick = { nav.navigate(r) { popUpTo(nav.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } })
             }
@@ -104,7 +97,6 @@ private val TABS = listOf(Triple("home", R.drawable.ic_home, "Home" to "الرئ
             composable("settings/ps4s") { Ps4ListScreen(nav) }
             composable("settings/ps4/{id}", listOf(navArgument("id") { type = NavType.StringType })) { Ps4EditScreen(it.arguments?.getString("id").orEmpty(), nav) }
             composable("settings/server") { ServerScreen(nav) }
-            composable("settings/theme") { ThemeSettingsScreen(nav) }
             composable("settings/advanced") { AdvancedScreen(nav) }
             composable("settings/log") { LogScreen(nav) }
         }
