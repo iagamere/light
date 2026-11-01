@@ -137,6 +137,7 @@ import kotlinx.coroutines.withContext
                 if (tab == 0) Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh).border(1.dp, cs.outlineVariant, RoundedCornerShape(18.dp)).padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) { rows.forEach { (k, v) -> InfoRow(k, v) } }
+                    GameAbout(g.titleId, g.title)
                     FilledTonalButton(onClick = { clip.setText(AnnotatedString(g.titleId)); Toast.makeText(ctx, tr("Copied", "تم النسخ"), Toast.LENGTH_SHORT).show() }) {
                         Ico(R.drawable.ic_copy, 18.dp); Spacer(Modifier.width(6.dp)); Lbl(tr("Copy title ID", "نسخ معرّف اللعبة"))
                     }

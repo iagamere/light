@@ -62,6 +62,11 @@ import kotlinx.coroutines.withContext
             ToggleRow(tr("Download notifications", "إشعارات التحميل"), "notif", true)
             ToggleRow(tr("Alert me when a download is interrupted", "نبّهني عند انقطاع تحميل"), "alert_int", true)
         } }
+        item { Panel {
+            ToggleRow(tr("Look up game information online", "البحث عن معلومات اللعبة عبر الإنترنت"), "online_info", true)
+            Dim(tr("Shows genre, age rating, release date and a short premise in a game's Details tab (Wikipedia / Wikidata). Only the game's name is sent, once per game.",
+                "يعرض النوع والتصنيف العمري وتاريخ الإصدار ونبذة في تبويب تفاصيل اللعبة (ويكيبيديا / ويكيداتا). يُرسَل اسم اللعبة فقط، مرة واحدة لكل لعبة."))
+        } }
         if (!ignoring) item { Panel {
             Text(tr("Battery optimization may pause background monitoring on some phones.", "قد يوقف توفير البطارية المراقبة في الخلفية على بعض الهواتف."))
             Button(onClick = { ctx.startActivity(Intent(AndroidSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }) { Lbl(tr("Battery settings", "إعدادات البطارية")) }

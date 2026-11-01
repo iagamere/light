@@ -390,12 +390,14 @@ object TrophyLib {
     fun accountDb(ps4: Ps4, account: Account, npwr: String, gameTitle: String, cache: File, notes: MutableList<String>, opened: BooleanArray = BooleanArray(1)): AccountDb? {
         val tdir = "/user/home/${account.id}/trophy"
         val dir = "$tdir/db"
-        notes += "$tdir: " + (try { Ps4Server.fsList(ps4, tdir, 8000).joinToString { (if (it.isDir) "[" + it.name + "]" else it.name) } } catch (e: Exception) { e.message ?: "?" })
-        val l = try { Ps4Server.fsList(ps4, dir, 8000) } catch (e: Exception) { notes += "$dir: ${e.message}"; return null }
+        // listing the PARENT folder too is only useful to explain a failure; doing it unconditionally doubled the PS4 round trips for
+        // every account on every game, including the common case where trophy_local.db already has the answer. Deferred to failure only.
+        fun parentListing() = "$tdir: " + (try { Ps4Server.fsList(ps4, tdir, 8000).joinToString { (if (it.isDir) "[" + it.name + "]" else it.name) } } catch (e: Exception) { e.message ?: "?" })
+        val l = try { Ps4Server.fsList(ps4, dir, 8000) } catch (e: Exception) { notes += "$dir: ${e.message}"; notes += parentListing(); return null }
         notes += "$dir: " + l.take(12).joinToString { "${it.name} (${it.size} B)" }
         // trophy_local.db is where Apollo finds the trophies; any other .db in the folder is checked for the same tables and described when it does not match
         val files = l.filter { !it.isDir && it.name.endsWith(".db", true) }.sortedByDescending { it.name == "trophy_local.db" }
-        if (files.isEmpty()) { notes += "$dir has no .db file (found: " + l.take(12).joinToString { it.name } + ")"; return null }
+        if (files.isEmpty()) { notes += "$dir has no .db file (found: " + l.take(12).joinToString { it.name } + ")"; notes += parentListing(); return null }
         for (main in files) {
             val base = File(cache, "troph_" + (ps4.id + account.id + main.name).hashCode().toUInt().toString(16) + ".db")
             val wal = l.firstOrNull { it.name == main.name + "-wal" && !it.isDir }
@@ -446,6 +448,7 @@ object TrophyLib {
                 } finally { db.close() }
             } catch (ex: Exception) { notes += "${main.name} (${account.name}): ${ex.message}" }
         }
+        notes += parentListing()
         return null
     }
 
